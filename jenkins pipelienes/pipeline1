@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+    environment {
+        SCANNER_HOME = tool 'mysonar'
+        cloud_name = credentials('CLOUDINARY_NAME')
+        cloud_key = credentials('CLOUDINARY_KEY')
+        cloud_secret = credentials('CLOUDINARY_SECRET')
+        mapbox = credentials('MAPBOX_TOKEN')
+        db_url = credentials('DB_URL')
+    }
+    stages {
+        stage("CleanWs") {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Chandhu34/3-Tier-Full-Stack-yelp-camp.git'
+            }
+        }
+        stage ("CQA") {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Myproject -Dsonar.projectKey=Myproject'''
+                }
+            }
+        }
+        stage ("Quality Gates") {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+                }
+            }
+        }
+        stage ("Build") {
+            steps {
+                sh 'docker build -t chandu34/finalcamp:v1 .'
+            }
+        }
+        stage ("Scan Image") {
+            steps {
+                sh 'trivy image chandu34/finalcamp:v1'
+            }
+        }
+        stage ("Push") {
+            steps {
+                script {
+                   withDockerRegistry(credentialsId: 'dockerhub') {
+                       sh 'docker push chandu34/finalcamp:v1' 
+                   }
+                }
+            }
+        }
+        stage("Container") {
+            steps {
+                sh "docker run -itd --name apps -p 1111:3000 -e CLOUDINARY_NAME=$cloud_name -e CLOUDINARY_KEY=$cloud_key -e CLOUDINARY_SECRET=$cloud_secret -e MAPBOX_TOKEN=$mapbox -e DB_URL=$db_url chandu34/finalcamp:v1"
+            }
+        }
+    }
+post {
+        always {
+            mail to: '<e-gmail>.com',
+            subject: "Pipeline Status",
+            body: "${currentBuild.currentResult}:* Job ${env.JOB_NAME} \n build ${env.BUILD_NUMBER} \n More info at: ${env.BUILD_URL}"
+        }
+    }
+}
