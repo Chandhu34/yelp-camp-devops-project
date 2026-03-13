@@ -1,0 +1,65 @@
+pipeline {
+    agent any
+    environment {
+        SCANNER_HOME = tool 'mysonar'
+    }
+    stages {
+        stage("CleanWs") {
+            steps {
+                cleanWs()
+            }
+        }
+        stage('Code') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Chandhu34/3-Tier-Full-Stack-yelp-camp.git'
+            }
+        }
+        stage ("CQA") {
+            steps {
+                withSonarQubeEnv('mysonar') {
+                    sh '''$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Myproject -Dsonar.projectKey=Myproject'''
+                }
+            }
+        }
+        stage ("Quality Gates") {
+            steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+                }
+            }
+        }
+        stage ("Build") {
+            steps {
+                sh 'docker build -t chandu34/finalcamp:v1 .'
+            }
+        }
+        stage ("Scan Image") {
+            steps {
+                sh 'trivy image chandu34/finalcamp:v1'
+            }
+        }
+        stage ("Push") {
+            steps {
+                script {
+                   withDockerRegistry(credentialsId: 'dockerhub') {
+                       sh 'docker push chandu34/finalcamp:v1' 
+                   }
+                }
+            }
+        }
+        stage("Deploy") {
+            steps {
+               withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'EKS_CLOUD', contextName: '', credentialsId: 'k8-token', namespace: 'webapps', serverUrl: 'https://81B2F41767E1701D5453847657B0A57A.yl4.eu-north-1.eks.amazonaws.com']]) {
+                   sh 'kubectl apply -f Manifests/'
+               }
+            }
+        }
+    }
+post {
+        always {
+            mail to: '<gmail>.com',
+            subject: "Pipeline Status",
+            body: "${currentBuild.currentResult}:* Job ${env.JOB_NAME} \n build ${env.BUILD_NUMBER} \n More info at: ${env.BUILD_URL}"
+        }
+    }
+}
