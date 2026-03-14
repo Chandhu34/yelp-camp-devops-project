@@ -88,23 +88,37 @@ Prometheus collects metrics and Grafana visualizes monitoring dashboards.
 Jenkins
 
 Docker
+
 Kubernetes
+
 Terraform
+
 Helm
+
 ## Monitoring
 Prometheus
+
 Grafana
+
 Node Exporter
+
 ## Security and Code Quality
 SonarQube
+
 Trivy
+
 ## Cloud Infrastructure
 AWS EC2
+
 AWS EKS
+
 AWS Load Balancer
+
 ## Database and Third-Party Services
 MongoDB Atlas
+
 Mapbox
+
 Cloudinary
 
 -----------------------------------------------------------
